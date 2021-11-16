@@ -11,6 +11,7 @@ import com.topjohnwu.magisk.core.Config
 import com.topjohnwu.magisk.core.Const
 import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.core.Provider
+import com.topjohnwu.magisk.core.model.module.LocalModule
 import com.topjohnwu.magisk.core.utils.AXML
 import com.topjohnwu.magisk.core.utils.Keygen
 import com.topjohnwu.magisk.di.ServiceLocator
@@ -20,6 +21,7 @@ import com.topjohnwu.magisk.signing.SignApk
 import com.topjohnwu.magisk.utils.APKInstall
 import com.topjohnwu.magisk.utils.Utils
 import com.topjohnwu.superuser.Shell
+import com.topjohnwu.superuser.ShellUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -101,11 +103,10 @@ object HideAPK {
     }
 
     private suspend fun patchAndHide(activity: Activity, label: String): Boolean {
+        val nvBase = ShellUtils.fastCmd("echo \$NVBASE")
         val stub = File(activity.cacheDir, "stub.apk")
-        try {
-            svc.fetchFile(Info.remote.stub.link).byteStream().writeTo(stub)
-        } catch (e: IOException) {
-            Timber.e(e)
+        Shell.su("cp -af $nvBase/magisk/stub.apk $stub").exec()
+        if (!stub.exists()) {
             return false
         }
 
