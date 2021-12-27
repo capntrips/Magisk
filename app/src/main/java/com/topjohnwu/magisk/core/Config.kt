@@ -104,11 +104,7 @@ object Config : PreferenceModel, DBConfig {
         const val ORDER_DATE = 1
     }
 
-    private val defaultChannel =
-        if (BuildConfig.DEBUG)
-            Value.CANARY_CHANNEL
-        else
-            Value.DEFAULT_CHANNEL
+    private val defaultChannel = Value.CANARY_CHANNEL
 
     @JvmField var keepVerity = false
     @JvmField var keepEnc = false
@@ -126,7 +122,7 @@ object Config : PreferenceModel, DBConfig {
     var suNotification by preferenceStrInt(Key.SU_NOTIFICATION, Value.NOTIFICATION_TOAST)
     var updateChannel by preferenceStrInt(Key.UPDATE_CHANNEL, defaultChannel)
 
-    var safetyNotice by preference(Key.SAFETY, true)
+    var safetyNotice by preference(Key.SAFETY, false)
     var darkTheme by preference(Key.DARK_THEME, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
     var themeOrdinal by preference(Key.THEME_ORDINAL, Theme.Piplup.ordinal)
     var suReAuth by preference(Key.SU_REAUTH, false)
