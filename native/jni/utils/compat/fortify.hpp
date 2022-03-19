@@ -108,3 +108,9 @@ int __openat_2(int fd, const char* pathname, int flags) {
     if (needs_mode(flags)) __fortify_fatal("open: called with O_CREAT/O_TMPFILE but no mode");
     return __openat_real(fd, pathname, force_O_LARGEFILE(flags), 0);
 }
+// https://android.googlesource.com/platform/bionic/+/refs/tags/ndk-r23b/libc/bionic/fortify.cpp#494
+extern "C" void* __memcpy_chk(void* dst, const void* src, size_t count, size_t dst_len) {
+    __check_count("memcpy", "count", count);
+    __check_buffer_access("memcpy", "write into", count, dst_len);
+    return memcpy(dst, src, count);
+}

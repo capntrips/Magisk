@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <utility>
 #include <bitset>
+#include "avbv2.hpp"
 #include "format.hpp"
 
 /******************

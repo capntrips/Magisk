@@ -80,13 +80,14 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := magiskboot
 LOCAL_STATIC_LIBRARIES := \
     libutilx \
-    libmincrypt \
     liblzma \
     liblz4 \
     libbz2 \
     libfdt \
     libz \
-    libzopfli
+    libzopfli \
+    libcrypto_static \
+    libavb
 
 LOCAL_SRC_FILES := \
     magiskboot/main.cpp \
@@ -97,7 +98,9 @@ LOCAL_SRC_FILES := \
     magiskboot/dtb.cpp \
     magiskboot/ramdisk.cpp \
     magiskboot/pattern.cpp \
-    magiskboot/cpio.cpp
+    magiskboot/cpio.cpp \
+    magiskboot/avbv2.cpp \
+    magiskboot/android_pubkey.cpp
 
 LOCAL_LDFLAGS := -static
 include $(BUILD_EXECUTABLE)
