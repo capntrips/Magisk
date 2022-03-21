@@ -118,10 +118,10 @@ Supported actions:
         Verify AVBb2 hashes and signature
         Return values:
         0:valid    2:invalid    4:unsupported
-      sign <privkey>
-        Updates AVBv2 hashes and signature using <privkey>
+      sign [privkey]
+        Updates AVBv2 hashes and signature using [privkey] or testkey
         Return values:
-        0:valid    2:invalid    4:unsupported)EOF");
+        0:valid    1:syntax error    2:invalid    4:unsupported    8:key error)EOF");
 
     fprintf(stderr, "\n\n");
     exit(1);

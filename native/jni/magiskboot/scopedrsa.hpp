@@ -39,17 +39,58 @@ class ScopedRSA {
         // https://android.googlesource.com/platform/external/boringssl/+/refs/tags/android-12.0.0_r12/src/crypto/pem/pem_pkey.c#154
         // https://android.googlesource.com/platform/external/boringssl/+/refs/tags/android-12.0.0_r12/src/crypto/pem/pem_test.cc#24
         BIO *b = BIO_new_mem_buf(privkey, strlen((const char*)privkey));
-        if (b == NULL) {
-                return;
+        if (b == nullptr) {
+            return;
         }
         rsa_ = PEM_read_bio_RSAPrivateKey(b, nullptr, nullptr, nullptr);
-        initialized = true;
+        if (rsa_ != nullptr) {
+            initialized = true;
+        }
+    }
+
+    ScopedRSA(FILE* key) {
+        rsa_ = PEM_read_RSAPrivateKey(key, nullptr, nullptr, nullptr);
+        if (rsa_ != nullptr) {
+            initialized = true;
+        }
+    }
+
+    ScopedRSA(int bits) {
+        rsa_ = RSA_new();
+        BIGNUM* e = BN_new();
+        if (e && BN_set_word(e, RSA_F4)) {
+            if (RSA_generate_key_ex(rsa_, bits, e, nullptr) == 1) {
+                initialized = true;
+            }
+        }
+        if (!initialized) {
+            RSA_free(rsa_);
+        }
+        BN_free(e);
     }
 
     ScopedRSA(const uint8_t* key_buffer, size_t size) {
         if (android_pubkey_decode((uint8_t*)key_buffer, size, &rsa_)) {
             initialized = true;
         }
+    }
+
+    static ScopedRSA* fromPath(const char* pem_key_path) {
+        FILE* fp = fopen(pem_key_path, "r");
+        if (fp != nullptr) {
+            ScopedRSA* rsa = new ScopedRSA(fp);
+            fclose(fp);
+            return rsa;
+        }
+        return nullptr;
+    }
+
+    int toPath(const char* pem_key_path) {
+        FILE* fp = fopen(pem_key_path, "w");
+        if (fp != nullptr) {
+            return PEM_write_RSAPrivateKey(fp, rsa_, nullptr, nullptr, 0, nullptr, nullptr);
+        }
+        return 0;
     }
 
     ~ScopedRSA() {

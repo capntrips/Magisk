@@ -778,6 +778,8 @@ void repack(const char *src_img, const char *out_img, bool skip_comp) {
 
     if (boot.flags[AVB_FLAG] && !check_env("PATCHVBMETAFLAG")) {
         msync(out.buf, out.sz, MS_SYNC);
-        avbv2_verify_sign(out_img, true);
+        const char *val = getenv("MAGISKBIN");
+        fprintf(stderr, "! MAGISKBIN: %s\n", val);
+        avbv2_verify_sign(out_img, "/data/adb/magisk/key.pem", true);
     }
 }

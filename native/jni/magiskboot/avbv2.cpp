@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <inttypes.h>
+#include <sys/stat.h>
 #include <openssl/sha.h>
 #include <libavb/libavb.h>
 #include <utils.hpp>
@@ -19,15 +20,19 @@ int avbv2_commands(int argc, char *argv[]) {
 
     std::string_view action(argv[0]);
     if (action == "verify") {
-        return avbv2_verify_sign(boot, false);
+        return avbv2_verify_sign(boot, nullptr, false);
     } else if (action == "sign") {
-        return avbv2_verify_sign(boot, true);
+        if (argc > 1) {
+            return avbv2_verify_sign(boot, argv[1], true);
+        } else {
+            return avbv2_verify_sign(boot, nullptr, true);
+        }
     } else {
         return 1;
     }
 }
 
-int avbv2_verify_sign(const char *image, bool rw) {
+int avbv2_verify_sign(const char *image, const char *key, bool rw) {
     mmap_data boot(image, rw);
     const uint8_t* header_block = boot.buf;
     const uint8_t* footer = boot.buf + (boot.sz - 64);
@@ -229,33 +234,66 @@ int avbv2_verify_sign(const char *image, bool rw) {
         std::string privkey_string;
         int hash_nid;
 
-        switch (vbmeta_header.algorithm_type) {
-            case AVB_ALGORITHM_TYPE_SHA256_RSA2048:
-            case AVB_ALGORITHM_TYPE_SHA512_RSA2048:
-                privkey_string = testkey_rsa2048;
-                break;
-            case AVB_ALGORITHM_TYPE_SHA256_RSA4096:
-            case AVB_ALGORITHM_TYPE_SHA512_RSA4096:
-                privkey_string = testkey_rsa4096;
-                break;
-            case AVB_ALGORITHM_TYPE_SHA256_RSA8192:
-            case AVB_ALGORITHM_TYPE_SHA512_RSA8192:
-                privkey_string = testkey_rsa8192;
-                break;
+        ScopedRSA *privkey = nullptr;
+        if (key != nullptr) {
+            struct stat st;
+            if (stat(key, &st) != 0) {
+                fprintf(stderr, "! Key does not exist, creating ...\n");
+                int bits;
+                switch (vbmeta_header.algorithm_type) {
+                    case AVB_ALGORITHM_TYPE_SHA256_RSA2048:
+                    case AVB_ALGORITHM_TYPE_SHA512_RSA2048:
+                        bits = 2048;
+                        break;
+                    case AVB_ALGORITHM_TYPE_SHA256_RSA4096:
+                    case AVB_ALGORITHM_TYPE_SHA512_RSA4096:
+                        bits = 4096;
+                        break;
+                    case AVB_ALGORITHM_TYPE_SHA256_RSA8192:
+                    case AVB_ALGORITHM_TYPE_SHA512_RSA8192:
+                        bits = 8192;
+                        break;
+                }
+                privkey = new ScopedRSA(bits);
+                if (privkey->toPath(key) != 0) {
+                    fprintf(stderr, "! Key saved to %s\n", key);
+                } else {
+                    fprintf(stderr, "! Failed to save key\n");
+                }
+            } else {
+                privkey = ScopedRSA::fromPath(key);
+                if (privkey == nullptr || !privkey->is_initialized()) {
+                    fprintf(stderr, "! Bad or missing key\n");
+                    return AVB2_INVALID_KEY;
+                }
+            }
+        } else {
+            switch (vbmeta_header.algorithm_type) {
+                case AVB_ALGORITHM_TYPE_SHA256_RSA2048:
+                case AVB_ALGORITHM_TYPE_SHA512_RSA2048:
+                    privkey_string = testkey_rsa2048;
+                    break;
+                case AVB_ALGORITHM_TYPE_SHA256_RSA4096:
+                case AVB_ALGORITHM_TYPE_SHA512_RSA4096:
+                    privkey_string = testkey_rsa4096;
+                    break;
+                case AVB_ALGORITHM_TYPE_SHA256_RSA8192:
+                case AVB_ALGORITHM_TYPE_SHA512_RSA8192:
+                    privkey_string = testkey_rsa8192;
+                    break;
+            }
+            privkey = new ScopedRSA(privkey_string.c_str());
         }
 
-
-        ScopedRSA privkey(privkey_string.c_str());
-
-        if (privkey.size() != actual_signature_length) {
+        if (privkey->size() != actual_signature_length) {
             fprintf(stderr, "! Key size mismatch\n");
-            return AVB2_INVALID;
+            return AVB2_INVALID_KEY;
         }
 
-        uint8_t new_public_key_data[privkey.encoded_size()];
-        privkey.encode(new_public_key_data, privkey.encoded_size());
-        if (avb_memcmp(public_key_data, new_public_key_data, privkey.encoded_size()) != 0) {
-            avb_memcpy((void *)public_key_data, new_public_key_data, privkey.encoded_size());
+        uint8_t new_public_key_data[privkey->encoded_size()];
+        privkey->encode(new_public_key_data, privkey->encoded_size());
+        if (avb_memcmp(public_key_data, new_public_key_data, privkey->encoded_size()) != 0) {
+            avb_memcpy((void *)public_key_data, new_public_key_data, privkey->encoded_size());
         }
 
         if (avb_memcmp(boot_digest, actual_boot_digest, actual_boot_digest_length) != 0) {
@@ -283,7 +321,7 @@ int avbv2_verify_sign(const char *image, bool rw) {
                 break;
         }
 
-        privkey.sign(hash_nid, actual_hash, actual_hash_length, actual_signature);
+        privkey->sign(hash_nid, actual_hash, actual_hash_length, actual_signature);
 
         avb_memcpy((void *)hash, actual_hash, actual_hash_length);
 
